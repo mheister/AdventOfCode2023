@@ -1,5 +1,13 @@
-use common::twod::{Direction as Dir, Grid, Point, PointNeighbours};
-use std::{collections::HashMap, env, fs, ops::Index};
+mod tubemap;
+
+use common::twod::{Direction as Dir, Point};
+use itertools::Itertools;
+use std::{
+    collections::{HashMap, HashSet},
+    env, fs,
+};
+
+use crate::tubemap::TubeMap;
 
 fn main() {
     let input_file_path = env::args().nth(1).unwrap_or("10/example_input.txt".into());
@@ -15,74 +23,125 @@ fn main() {
         (b'.', vec![]),
         (b'S', vec![Dir::E, Dir::S, Dir::W, Dir::N]),
     ]);
-    let opposites = HashMap::from([
-        (Dir::E, Dir::W),
-        (Dir::W, Dir::E),
-        (Dir::N, Dir::S),
-        (Dir::S, Dir::N),
-    ]);
-    // crawl all around once to gen len
-    let mut p = map.start;
+
+    // crawl around animal's path to get len
+    let animal_path = try_crawl_path(&map, map.start, &pipe_ends)
+        .expect("Failed to crawl the animal's path");
+    println!(
+        "Len is {}, halfway point is {}, {} steps away from start",
+        animal_path.len(),
+        animal_path[animal_path.len() / 2 - 1],
+        animal_path.len() / 2
+    );
+
+    // find the enclosed tiles for part 2
+    let mut map = map.clone();
+    let floodfill = floodfill_path(&animal_path, &map);
+
+    // it turns out finding inner paths is not the point, everything in the floodfill
+    // counts as enclosed
+    //
+    // for p in &floodfill {
+    //     match map[*p] {
+    //         b'.' | b'X' => continue,
+    //         _ => (),
+    //     }
+    //     if let Some(path) = try_crawl_path(&map, *p, &pipe_ends) {
+    //         for inner_path_content in floodfill_path(&path, &map) {
+    //             map[inner_path_content] = b'X';
+    //         }
+    //         for inner_path_seg in path {
+    //             // to prevent us from crawling this path again
+    //             map[inner_path_seg] = b'X';
+    //         }
+    //     }
+    // }
+    // let n_tiles = floodfill.iter().filter(|&&p| map[p] != b'X').count();
+
+    let n_tiles = floodfill.len();
+    println!("There are {n_tiles} tiles enclosed by the loop");
+
+    // print the map as we see it
+    (0..map.grid.width())
+        .cartesian_product(0..map.grid.height())
+        .map(|(x, y)| Point {
+            x: x as i32,
+            y: y as i32,
+        })
+        .for_each(|p| {
+            if animal_path.contains(&p) {
+                //
+            } else if floodfill.contains(&p) {
+                map[p] = b'.';
+            } else {
+                map[p] = b'x';
+            }
+        });
+    println!("map:\n{}", map.to_string());
+}
+
+fn try_crawl_path(
+    map: &TubeMap,
+    start: Point,
+    pipe_ends: &HashMap<u8, Vec<Dir>>,
+) -> Option<Vec<Point>> {
     let mut origin_dir = Dir::S;
     let mut path = vec![];
+    let mut p = start;
     while path.len() < 1_000_000 {
         (origin_dir, p) = map
             .neighbours(p)
-            .filter(|(dir, _)| opposites[dir] != origin_dir)
+            .filter(|(dir, _)| dir.opposite() != origin_dir)
             .filter(|(dir, _)| pipe_ends[&map[p]].contains(dir))
-            .find(|(dir, neighbour)| pipe_ends[&map[*neighbour]].contains(&opposites[dir]))
-            .expect(format!("Stuck at {p}").as_str());
+            .find(|(dir, neighbour)| {
+                pipe_ends[&map[*neighbour]].contains(&dir.opposite())
+            })?;
         path.push(p);
-        if map[p] == b'S' {
+        if p == start {
             break;
         }
     }
-    println!(
-        "Len is {}, halfway point is {}, {} steps away from start",
-        path.len(),
-        path[path.len() / 2 - 1],
-        path.len() / 2
-    );
+    Some(path)
 }
 
-struct TubeMap {
-    grid: Grid<u8>,
-    start: Point,
+fn ensure_clockwise_path(path: &Vec<Point>) -> Vec<Point> {
+    if path.is_empty() {
+        return vec![];
+    }
+    let miny = path.iter().map(|p| p.y).min().unwrap();
+    let (topleft_pos, topleft) = path
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.y == miny)
+        .min_by(|a, b| a.1.x.cmp(&b.1.x))
+        .unwrap();
+    let next = path
+        .iter()
+        .nth(topleft_pos + 1)
+        .unwrap_or(path.first().unwrap());
+    if next.x - topleft.x == 1 {
+        path.clone()
+    } else {
+        path.iter().cloned().rev().collect()
+    }
 }
 
-impl From<&str> for TubeMap {
-    fn from(value: &str) -> Self {
-        let width = value.lines().next().map(|l| l.len()).unwrap_or(0);
-        let map = value
-            .as_bytes()
-            .iter()
-            .cloned()
-            .filter(|&c| c != b'\n')
-            .collect::<Vec<_>>();
-        let start_idx_in_raw = map
-            .iter()
-            .position(|&c| c == b'S')
-            .expect("Could not find start");
-        TubeMap {
-            grid: Grid { data: map, width },
-            start: Point {
-                x: (start_idx_in_raw as usize % width).try_into().unwrap(),
-                y: (start_idx_in_raw as usize / width).try_into().unwrap(),
-            },
+fn floodfill_path(path: &Vec<Point>, map: &TubeMap) -> HashSet<Point> {
+    let animal_path = ensure_clockwise_path(&path);
+    let mut floodfill = HashSet::new();
+    for (a, b) in animal_path.iter().zip(animal_path.iter().cycle().skip(1)) {
+        let dir = (b.x - a.x, b.y - a.y);
+        let dir_rot90 = (-1 * dir.1, dir.0);
+        for s in [a, b] {
+            let floodfill_from_here = map.grid.get_floodfill_region(
+                Point {
+                    x: s.x + dir_rot90.0,
+                    y: s.y + dir_rot90.1,
+                },
+                |p| !animal_path.contains(&p),
+            );
+            floodfill.extend(floodfill_from_here);
         }
     }
-}
-
-impl Index<Point> for TubeMap {
-    type Output = u8;
-
-    fn index(&self, index: Point) -> &Self::Output {
-        &self.grid[index]
-    }
-}
-
-impl TubeMap {
-    fn neighbours(&self, p: Point) -> PointNeighbours {
-        p.neighbours(self.grid.width() as i32, self.grid.height() as i32)
-    }
+    floodfill
 }

@@ -1,3 +1,25 @@
+use std::collections::{HashMap, HashSet};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Direction {
+    N,
+    E,
+    S,
+    W,
+}
+
+impl Direction {
+    pub fn opposite(self) -> Self {
+        let opposites = HashMap::from([
+            (Direction::E, Direction::W),
+            (Direction::W, Direction::E),
+            (Direction::N, Direction::S),
+            (Direction::S, Direction::N),
+        ]);
+        opposites[&self]
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Point {
     /// x coordinate, alias column
@@ -32,20 +54,12 @@ pub struct PointNeighbours {
     i: u8,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Direction {
-    N,
-    E,
-    S,
-    W,
-}
-
 impl Iterator for PointNeighbours {
     type Item = (Direction, Point);
     fn next(&mut self) -> Option<Self::Item> {
         use Direction as D;
         const OFFSETS: [(Direction, i32, i32); 4] =
-            [(D::W, -1, 0), (D::S, 0, 1), (D::E, 1, 0), (D::N, 0, -1)];
+            [(D::E, 1, 0), (D::S, 0, 1), (D::W, -1, 0), (D::N, 0, -1)];
         let mut dir;
         let mut point;
         loop {
@@ -123,5 +137,26 @@ where
             }
         }
         self[p2] = item;
+    }
+
+    pub fn get_floodfill_region<P>(&self, start: Point, predicate: P) -> HashSet<Point>
+    where
+        P: Fn(Point) -> bool,
+    {
+        if !predicate(start) {
+            return HashSet::new();
+        }
+        let mut to_visit = vec![start];
+        let mut visited = HashSet::new();
+        while !to_visit.is_empty() {
+            let p = to_visit.pop().unwrap();
+            visited.insert(p);
+            for (_, n) in p.neighbours(self.width as i32, self.height() as i32) {
+                if !visited.contains(&n) && predicate(n) {
+                    to_visit.push(n);
+                }
+            }
+        }
+        visited
     }
 }
