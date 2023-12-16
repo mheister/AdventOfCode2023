@@ -4,6 +4,7 @@ use common::twod::PointNeighbours;
 
 use std::ops::Index;
 use std::ops::IndexMut;
+use std::str::FromStr;
 
 use itertools::Itertools;
 
@@ -13,8 +14,9 @@ pub struct TubeMap {
     pub start: Point,
 }
 
-impl From<&str> for TubeMap {
-    fn from(value: &str) -> Self {
+impl FromStr for TubeMap {
+    type Err = String;
+    fn from_str(value: &str) -> Result<TubeMap, String> {
         let width = value.lines().next().map(|l| l.len()).unwrap_or(0);
         let map = value
             .as_bytes()
@@ -25,14 +27,14 @@ impl From<&str> for TubeMap {
         let start_idx_in_raw = map
             .iter()
             .position(|&c| c == b'S')
-            .expect("Could not find start");
-        TubeMap {
+            .ok_or("Could not find start")?;
+        Ok(TubeMap {
             grid: Grid { data: map, width },
             start: Point {
                 x: (start_idx_in_raw as usize % width).try_into().unwrap(),
                 y: (start_idx_in_raw as usize / width).try_into().unwrap(),
             },
-        }
+        })
     }
 }
 

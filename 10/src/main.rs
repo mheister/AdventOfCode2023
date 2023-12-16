@@ -12,7 +12,7 @@ use crate::tubemap::TubeMap;
 fn main() {
     let input_file_path = env::args().nth(1).unwrap_or("10/example_input.txt".into());
     let input = fs::read_to_string(&input_file_path).unwrap();
-    let map = TubeMap::from(input.as_str());
+    let map: TubeMap = input.parse().unwrap();
     let pipe_ends = HashMap::<_, _>::from([
         (b'|', vec![Dir::N, Dir::S]),
         (b'-', vec![Dir::W, Dir::E]),
