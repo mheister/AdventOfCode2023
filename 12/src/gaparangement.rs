@@ -40,9 +40,6 @@ impl Iterator for GapArrangementIter {
             return None;
         }
         let res = Some(self.gaps.clone());
-        // if self.gaps.iter().rev().skip(1).all(|&c| c == 1) {
-        //     self.gaps.clear();
-        // }
         if *self.gaps.first().unwrap_or(&0) > 0 {
             assert!(self.gaps.len() >= 2);
             self.gaps[0] -= 1;
