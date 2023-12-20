@@ -26,7 +26,7 @@ impl SpringRow {
         mem: &mut MemMap,
     ) -> usize {
         if groups.is_empty() {
-            return 1;
+            return if row.contains('#') { 0 } else { 1 };
         }
         if row.is_empty() {
             return 0;
@@ -74,7 +74,9 @@ impl SpringRow {
             sum +=
                 Self::count_possibilities_fast_internal(&row[i + grp0 + 1..], grps, mem);
         }
-        mem.entry(row.to_string()).or_default().insert(groups.to_vec(), sum);
+        mem.entry(row.to_string())
+            .or_default()
+            .insert(groups.to_vec(), sum);
         sum
     }
 
