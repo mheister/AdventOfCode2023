@@ -1,4 +1,3 @@
-mod gaparangement;
 mod springrow;
 
 use std::{env, fs};

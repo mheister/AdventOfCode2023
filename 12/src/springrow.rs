@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::{collections::HashMap, iter::repeat};
 
 use itertools::Itertools;
 
@@ -8,17 +8,33 @@ pub struct SpringRow {
     pub groups: Vec<u32>,
 }
 
+// 2 stage map so we can lookup via references
+type MemMap = HashMap<String, HashMap<Vec<u32>, usize>>;
+
 impl SpringRow {
     pub fn count_possibilities(&self) -> usize {
-        Self::count_possibilities_fast_internal(&self.row, &self.groups)
+        Self::count_possibilities_fast_internal(
+            &self.row,
+            &self.groups,
+            &mut HashMap::new(),
+        )
     }
 
-    fn count_possibilities_fast_internal(row: &str, groups: &[u32]) -> usize {
+    fn count_possibilities_fast_internal(
+        row: &str,
+        groups: &[u32],
+        mem: &mut MemMap,
+    ) -> usize {
         if groups.is_empty() {
             return 1;
         }
         if row.is_empty() {
             return 0;
+        }
+        if let Some(&ref counts_for_this_string) = mem.get(row) {
+            if let Some(&cnt) = counts_for_this_string.get(groups) {
+                return cnt;
+            }
         }
         let grp0 = groups[0] as usize;
         let grps = &groups[1..];
@@ -55,8 +71,10 @@ impl SpringRow {
                 }
                 continue;
             }
-            sum += Self::count_possibilities_fast_internal(&row[i + grp0 + 1..], grps);
+            sum +=
+                Self::count_possibilities_fast_internal(&row[i + grp0 + 1..], grps, mem);
         }
+        mem.entry(row.to_string()).or_default().insert(groups.to_vec(), sum);
         sum
     }
 
