@@ -101,6 +101,24 @@ impl<T> std::ops::IndexMut<Point> for Grid<T> {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct RowIdx {
+    pub idx: usize,
+}
+
+impl<T> std::ops::Index<RowIdx> for Grid<T> {
+    type Output = [T];
+    fn index(&self, r: RowIdx) -> &Self::Output {
+        &self.data[r.idx * self.width..(r.idx + 1) * self.width]
+    }
+}
+
+impl<T> std::ops::IndexMut<RowIdx> for Grid<T> {
+    fn index_mut(&mut self, r: RowIdx) -> &mut [T] {
+        &mut self.data[r.idx * self.width..(r.idx + 1) * self.width]
+    }
+}
+
 impl<T> Grid<T>
 where
     T: Copy,
@@ -158,5 +176,20 @@ where
             }
         }
         visited
+    }
+
+    pub fn mirror_rows(&mut self) {
+        let mut buf: Vec<T>;
+        for row in 0..self.height() {
+            buf = self[RowIdx { idx: row }].iter().cloned().collect();
+            for col in 0..self.width {
+                self[RowIdx { idx: row }][col] = buf[self.width - col];
+            }
+        }
+    }
+
+    pub fn mirror_columns(&mut self) {
+        self.data = self.data.iter().rev().cloned().collect();
+        self.mirror_rows();
     }
 }
