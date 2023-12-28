@@ -1,7 +1,9 @@
 use common::twod::{Grid, Point};
 use std::{env, fmt::Debug, fs};
 
-use crate::vis::{print_horizontally_reflected_pattern, print_vertically_reflected_pattern};
+use crate::vis::{
+    print_horizontally_reflected_pattern, print_vertically_reflected_pattern,
+};
 mod vis;
 
 fn main() {
@@ -58,7 +60,7 @@ fn find_horizontal_reflection_line(grid: &Grid<char>) -> ReflectionLine {
             }
             depth += 1;
         }
-        if depth >= res.depth {
+        if (depth == pos || (depth + pos == grid.height())) && depth >= res.depth {
             res = ReflectionLine { pos, depth };
         }
     }
@@ -84,7 +86,7 @@ fn find_vertical_reflection_line(grid: &Grid<char>) -> ReflectionLine {
             }
             depth += 1;
         }
-        if depth >= res.depth {
+        if (depth == pos || (depth + pos == grid.width())) && depth >= res.depth {
             res = ReflectionLine { pos, depth };
         }
     }
