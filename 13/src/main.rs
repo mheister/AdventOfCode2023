@@ -17,9 +17,9 @@ fn main() {
         })
         .collect::<Vec<_>>();
     let mut sum = 0;
-    for pat in patterns {
-        let vert_line = find_vertical_reflection_line(&pat);
-        let horz_line = find_horizontal_reflection_line(&pat);
+    for pat in &patterns {
+        let vert_line = find_vertical_reflection_line(&pat, 0);
+        let horz_line = find_horizontal_reflection_line(&pat, 0);
         if vert_line.depth > horz_line.depth {
             print_vertically_reflected_pattern(&pat, &vert_line);
             println!("Adding {}", vert_line.pos);
@@ -32,7 +32,26 @@ fn main() {
             sum += 100 * horz_line.pos;
         }
     }
-    print!("The sum for part 1 is {sum}");
+    println!("The sum for part 1 is {sum}");
+    println!();
+
+    let mut sum = 0;
+    for pat in &patterns {
+        let vert_line = find_vertical_reflection_line(&pat, 1);
+        let horz_line = find_horizontal_reflection_line(&pat, 1);
+        if vert_line.depth > horz_line.depth {
+            print_vertically_reflected_pattern(&pat, &vert_line);
+            println!("Adding {}", vert_line.pos);
+            println!();
+            sum += vert_line.pos;
+        } else {
+            print_horizontally_reflected_pattern(&pat, &horz_line);
+            println!("Adding {}", 100 * horz_line.pos);
+            println!();
+            sum += 100 * horz_line.pos;
+        }
+    }
+    println!("The sum for part 2 is {sum}");
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -41,52 +60,74 @@ struct ReflectionLine {
     depth: usize,
 }
 
-fn find_horizontal_reflection_line(grid: &Grid<char>) -> ReflectionLine {
+fn find_horizontal_reflection_line(grid: &Grid<char>, smudges: usize) -> ReflectionLine {
     let mut res = ReflectionLine { pos: 0, depth: 0 };
     for pos in 1..grid.height() {
         let mut depth = 0;
+        let mut smudges = smudges;
         for d in 0..std::cmp::min(pos, grid.height() - pos) {
-            let mirrored = (0..grid.width()).all(|col| {
-                grid[Point {
-                    x: col as i32,
-                    y: (pos + d) as i32,
-                }] == grid[Point {
-                    x: col as i32,
-                    y: (pos - d - 1) as i32,
-                }]
-            });
-            if !mirrored {
+            let mut mismatches = (0..grid.width())
+                .map(|col| {
+                    grid[Point {
+                        x: col as i32,
+                        y: (pos + d) as i32,
+                    }] != grid[Point {
+                        x: col as i32,
+                        y: (pos - d - 1) as i32,
+                    }]
+                })
+                .filter(|&c| c)
+                .count();
+            if smudges >= mismatches {
+                smudges -= mismatches;
+                mismatches = 0;
+            }
+            if mismatches > 0 {
                 break;
             }
             depth += 1;
         }
-        if (depth == pos || (depth + pos == grid.height())) && depth >= res.depth {
+        if smudges == 0
+            && (depth == pos || (depth + pos == grid.height()))
+            && depth >= res.depth
+        {
             res = ReflectionLine { pos, depth };
         }
     }
     res
 }
 
-fn find_vertical_reflection_line(grid: &Grid<char>) -> ReflectionLine {
+fn find_vertical_reflection_line(grid: &Grid<char>, smudges: usize) -> ReflectionLine {
     let mut res = ReflectionLine { pos: 0, depth: 0 };
     for pos in 1..grid.width() {
         let mut depth = 0;
+        let mut smudges = smudges;
         for d in 0..std::cmp::min(pos, grid.width() - pos) {
-            let mirrored = (0..grid.height()).all(|row| {
-                grid[Point {
-                    x: (pos + d) as i32,
-                    y: row as i32,
-                }] == grid[Point {
-                    x: (pos - d - 1) as i32,
-                    y: row as i32,
-                }]
-            });
-            if !mirrored {
+            let mut mismatches = (0..grid.height())
+                .map(|row| {
+                    grid[Point {
+                        x: (pos + d) as i32,
+                        y: row as i32,
+                    }] != grid[Point {
+                        x: (pos - d - 1) as i32,
+                        y: row as i32,
+                    }]
+                })
+                .filter(|&c| c)
+                .count();
+            if smudges >= mismatches {
+                smudges -= mismatches;
+                mismatches = 0;
+            }
+            if mismatches > 0 {
                 break;
             }
             depth += 1;
         }
-        if (depth == pos || (depth + pos == grid.width())) && depth >= res.depth {
+        if smudges == 0
+            && (depth == pos || (depth + pos == grid.width()))
+            && depth >= res.depth
+        {
             res = ReflectionLine { pos, depth };
         }
     }
@@ -106,44 +147,47 @@ mod tests {
 
     #[test]
     fn find_vertical_reflection_lines() {
-        assert_eq!(find_vertical_reflection_line(&oneline("")).depth, 0);
-        assert_eq!(find_vertical_reflection_line(&oneline("asdf")).depth, 0);
+        assert_eq!(find_vertical_reflection_line(&oneline(""), 0).depth, 0);
+        assert_eq!(find_vertical_reflection_line(&oneline("asdf"), 0).depth, 0);
         assert_eq!(
-            find_vertical_reflection_line(&oneline("eert")),
+            find_vertical_reflection_line(&oneline("eert"), 0),
             ReflectionLine { pos: 1, depth: 1 }
         );
         assert_eq!(
-            find_vertical_reflection_line(&oneline("zxxc")),
+            find_vertical_reflection_line(&oneline("zxx"), 0),
             ReflectionLine { pos: 2, depth: 1 }
         );
         assert_eq!(
-            find_vertical_reflection_line(&oneline("xxxx")),
+            find_vertical_reflection_line(&oneline("xxxx"), 0),
             ReflectionLine { pos: 2, depth: 2 }
         );
         assert_eq!(
-            find_vertical_reflection_line(&oneline("yuipp")),
+            find_vertical_reflection_line(&oneline("yuipp"), 0),
             ReflectionLine { pos: 4, depth: 1 }
         );
         assert_eq!(
-            find_vertical_reflection_line(&oneline("yui1234pp1")),
+            find_vertical_reflection_line(&oneline("yui1234pp"), 0),
             ReflectionLine { pos: 8, depth: 1 }
         );
         assert_eq!(
-            find_vertical_reflection_line(&oneline("yui2pp2")),
+            find_vertical_reflection_line(&oneline("yui2pp2"), 0),
             ReflectionLine { pos: 5, depth: 2 }
         );
         assert_eq!(
-            find_vertical_reflection_line(&Grid::<char> {
-                data: "#....#..#\
+            find_vertical_reflection_line(
+                &Grid::<char> {
+                    data: "#....#..#\
                        ..##..###\
                        #####.##.\
                        #####.##.\
                        ..##..###\
                        #..4.#.4#"
-                    .chars()
-                    .collect(),
-                width: 9,
-            })
+                        .chars()
+                        .collect(),
+                    width: 9,
+                },
+                0
+            )
             .depth,
             0
         );
@@ -152,38 +196,45 @@ mod tests {
     #[test]
     fn find_horizontal_reflection_lines() {
         assert_eq!(
-            find_horizontal_reflection_line(&Grid::<char> {
-                data: "#...##..#\
+            find_horizontal_reflection_line(
+                &Grid::<char> {
+                    data: "#...##..#\
                        #....#..#\
                        ..##..###\
                        #####.##.\
                        #####.##.\
                        ..##..###\
                        #....#..#"
-                    .chars()
-                    .collect(),
-                width: 9,
-            }),
+                        .chars()
+                        .collect(),
+                    width: 9,
+                },
+                0
+            ),
             ReflectionLine { pos: 4, depth: 3 }
         );
 
         assert_eq!(
-            find_horizontal_reflection_line(&Grid::<char> {
-                data: "#....#..#\
+            find_horizontal_reflection_line(
+                &Grid::<char> {
+                    data: "#....#..#\
                        ..##..###\
                        #####.##.\
                        #####.##.\
                        ..##..###\
                        #....#..#"
-                    .chars()
-                    .collect(),
-                width: 9,
-            }),
+                        .chars()
+                        .collect(),
+                    width: 9,
+                },
+                0
+            ),
             ReflectionLine { pos: 3, depth: 3 }
         );
         assert_eq!(
-            find_horizontal_reflection_line(&Grid::<char> {
-                data: "\
+            find_horizontal_reflection_line(
+                &Grid::<char> {
+                    data: "\
                     ..##.##.##..##..#\
                     ..#.####.#..#.###\
                     #####..#####..###\
@@ -196,10 +247,12 @@ mod tests {
                     #...#..#...#..#..\
                     ##..#..##.##.#...\
                     "
-                .chars()
-                .collect(),
-                width: 17,
-            }),
+                    .chars()
+                    .collect(),
+                    width: 17,
+                },
+                0
+            ),
             ReflectionLine { pos: 4, depth: 4 }
         );
     }
